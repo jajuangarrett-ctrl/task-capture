@@ -40,10 +40,26 @@ export function insertAtTopOfBucket(
   return ensured.slice(0, insertAt) + bullet + ensured.slice(insertAt);
 }
 
+const BUCKET_TAGS: Record<Bucket, string> = {
+  "Do First": "#DoFirst",
+  "Do Soon": "#DoSoon",
+  Delegate: "#Delegate",
+  Waiting: "#Waiting",
+};
+
 export function renderBullet(item: TaskItem): string {
   const text = item.text.trimEnd();
-  const needsTag = !/(?:^|\s)#task(?:\s|$)/.test(text);
-  return needsTag ? `- [ ] ${text} #task\n` : `- [ ] ${text}\n`;
+  const tagsToAppend: string[] = [];
+  if (!hasTag(text, "task")) tagsToAppend.push("#task");
+  const bucketTag = BUCKET_TAGS[item.bucket];
+  if (!hasTag(text, bucketTag.slice(1))) tagsToAppend.push(bucketTag);
+  return tagsToAppend.length === 0
+    ? `- [ ] ${text}\n`
+    : `- [ ] ${text} ${tagsToAppend.join(" ")}\n`;
+}
+
+function hasTag(text: string, tag: string): boolean {
+  return new RegExp(`(?:^|\\s)#${escapeRegex(tag)}(?:\\s|$)`).test(text);
 }
 
 function escapeRegex(s: string): string {

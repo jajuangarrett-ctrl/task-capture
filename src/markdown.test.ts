@@ -105,28 +105,45 @@ describe("insertAtTopOfBucket", () => {
 });
 
 describe("renderBullet", () => {
-  it("renders text with checkbox prefix, #task tag, and trailing newline", () => {
+  it("renders text with checkbox prefix, #task tag, bucket tag, and trailing newline", () => {
     const item: TaskItem = { bucket: "Do First", text: "Review the budget" };
-    expect(renderBullet(item)).toBe("- [ ] Review the budget #task\n");
+    expect(renderBullet(item)).toBe("- [ ] Review the budget #task #DoFirst\n");
   });
 
-  it("does NOT include bucket name in the bullet (bucket is implicit from heading)", () => {
-    const item: TaskItem = { bucket: "Delegate", text: "Pull SAP report" };
-    expect(renderBullet(item)).toBe("- [ ] Pull SAP report #task\n");
+  it("appends the matching bucket tag for each bucket", () => {
+    expect(renderBullet({ bucket: "Do First", text: "a" })).toBe("- [ ] a #task #DoFirst\n");
+    expect(renderBullet({ bucket: "Do Soon", text: "b" })).toBe("- [ ] b #task #DoSoon\n");
+    expect(renderBullet({ bucket: "Delegate", text: "c" })).toBe("- [ ] c #task #Delegate\n");
+    expect(renderBullet({ bucket: "Waiting", text: "d" })).toBe("- [ ] d #task #Waiting\n");
   });
 
   it("does not duplicate the #task tag if the user already typed it", () => {
     const item: TaskItem = { bucket: "Do First", text: "Reply to dean #task" };
-    expect(renderBullet(item)).toBe("- [ ] Reply to dean #task\n");
+    expect(renderBullet(item)).toBe("- [ ] Reply to dean #task #DoFirst\n");
+  });
+
+  it("does not duplicate the bucket tag if the user already typed it", () => {
+    const item: TaskItem = { bucket: "Delegate", text: "Pull SAP report #Delegate" };
+    expect(renderBullet(item)).toBe("- [ ] Pull SAP report #Delegate #task\n");
+  });
+
+  it("does not duplicate either tag if both are already present", () => {
+    const item: TaskItem = { bucket: "Waiting", text: "#task ping legal #Waiting" };
+    expect(renderBullet(item)).toBe("- [ ] #task ping legal #Waiting\n");
   });
 
   it("recognizes #task in the middle of the text and does not append a duplicate", () => {
     const item: TaskItem = { bucket: "Do Soon", text: "Follow up #task with HR" };
-    expect(renderBullet(item)).toBe("- [ ] Follow up #task with HR\n");
+    expect(renderBullet(item)).toBe("- [ ] Follow up #task with HR #DoSoon\n");
   });
 
   it("does NOT treat #taskforce as the #task tag (word boundary check)", () => {
     const item: TaskItem = { bucket: "Do First", text: "Email the #taskforce chair" };
-    expect(renderBullet(item)).toBe("- [ ] Email the #taskforce chair #task\n");
+    expect(renderBullet(item)).toBe("- [ ] Email the #taskforce chair #task #DoFirst\n");
+  });
+
+  it("does NOT treat #DoFirstly as the #DoFirst tag (word boundary check)", () => {
+    const item: TaskItem = { bucket: "Do First", text: "Note #DoFirstly draft" };
+    expect(renderBullet(item)).toBe("- [ ] Note #DoFirstly draft #task #DoFirst\n");
   });
 });
