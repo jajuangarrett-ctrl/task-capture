@@ -105,13 +105,28 @@ describe("insertAtTopOfBucket", () => {
 });
 
 describe("renderBullet", () => {
-  it("renders text with checkbox prefix and trailing newline", () => {
+  it("renders text with checkbox prefix, #task tag, and trailing newline", () => {
     const item: TaskItem = { bucket: "Do First", text: "Review the budget" };
-    expect(renderBullet(item)).toBe("- [ ] Review the budget\n");
+    expect(renderBullet(item)).toBe("- [ ] Review the budget #task\n");
   });
 
   it("does NOT include bucket name in the bullet (bucket is implicit from heading)", () => {
     const item: TaskItem = { bucket: "Delegate", text: "Pull SAP report" };
-    expect(renderBullet(item)).toBe("- [ ] Pull SAP report\n");
+    expect(renderBullet(item)).toBe("- [ ] Pull SAP report #task\n");
+  });
+
+  it("does not duplicate the #task tag if the user already typed it", () => {
+    const item: TaskItem = { bucket: "Do First", text: "Reply to dean #task" };
+    expect(renderBullet(item)).toBe("- [ ] Reply to dean #task\n");
+  });
+
+  it("recognizes #task in the middle of the text and does not append a duplicate", () => {
+    const item: TaskItem = { bucket: "Do Soon", text: "Follow up #task with HR" };
+    expect(renderBullet(item)).toBe("- [ ] Follow up #task with HR\n");
+  });
+
+  it("does NOT treat #taskforce as the #task tag (word boundary check)", () => {
+    const item: TaskItem = { bucket: "Do First", text: "Email the #taskforce chair" };
+    expect(renderBullet(item)).toBe("- [ ] Email the #taskforce chair #task\n");
   });
 });

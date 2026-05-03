@@ -41,7 +41,9 @@ export function insertAtTopOfBucket(
 }
 
 export function renderBullet(item: TaskItem): string {
-  return `- [ ] ${item.text}\n`;
+  const text = item.text.trimEnd();
+  const needsTag = !/(?:^|\s)#task(?:\s|$)/.test(text);
+  return needsTag ? `- [ ] ${text} #task\n` : `- [ ] ${text}\n`;
 }
 
 function escapeRegex(s: string): string {
