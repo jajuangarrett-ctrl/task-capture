@@ -31,64 +31,82 @@ describe("buildSkeleton", () => {
 });
 
 describe("renderBullet", () => {
-  it("renders text with checkbox prefix, #task tag, and trailing newline", () => {
-    const item: TaskItem = { text: "Review the budget" };
-    expect(renderBullet(item)).toBe("- [ ] Review the budget #task\n");
+  it("renders text with checkbox prefix, #task tag, bucket tag, and trailing newline", () => {
+    const item: TaskItem = { bucket: "Do First", text: "Review the budget" };
+    expect(renderBullet(item)).toBe("- [ ] Review the budget #task #DoFirst\n");
+  });
+
+  it("appends the matching bucket tag for each bucket", () => {
+    expect(renderBullet({ bucket: "Do First", text: "a" })).toBe("- [ ] a #task #DoFirst\n");
+    expect(renderBullet({ bucket: "Do Soon", text: "b" })).toBe("- [ ] b #task #DoSoon\n");
+    expect(renderBullet({ bucket: "Delegate", text: "c" })).toBe("- [ ] c #task #Delegate\n");
+    expect(renderBullet({ bucket: "Waiting", text: "d" })).toBe("- [ ] d #task #Waiting\n");
+    expect(renderBullet({ bucket: "On-Hold", text: "e" })).toBe("- [ ] e #task #On-Hold\n");
   });
 
   it("does not duplicate the #task tag if the user already typed it", () => {
-    const item: TaskItem = { text: "Reply to dean #task" };
-    expect(renderBullet(item)).toBe("- [ ] Reply to dean #task\n");
+    const item: TaskItem = { bucket: "Do First", text: "Reply to dean #task" };
+    expect(renderBullet(item)).toBe("- [ ] Reply to dean #task #DoFirst\n");
   });
 
-  it("recognizes #task in the middle of the text and does not append a duplicate", () => {
-    const item: TaskItem = { text: "Follow up #task with HR" };
-    expect(renderBullet(item)).toBe("- [ ] Follow up #task with HR\n");
+  it("does not duplicate the bucket tag if the user already typed it", () => {
+    const item: TaskItem = { bucket: "Delegate", text: "Pull SAP report #Delegate" };
+    expect(renderBullet(item)).toBe("- [ ] Pull SAP report #Delegate #task\n");
+  });
+
+  it("does not duplicate either tag if both are already present", () => {
+    const item: TaskItem = { bucket: "Waiting", text: "#task ping legal #Waiting" };
+    expect(renderBullet(item)).toBe("- [ ] #task ping legal #Waiting\n");
   });
 
   it("does NOT treat #taskforce as the #task tag (word boundary check)", () => {
-    const item: TaskItem = { text: "Email the #taskforce chair" };
-    expect(renderBullet(item)).toBe("- [ ] Email the #taskforce chair #task\n");
+    const item: TaskItem = { bucket: "Do First", text: "Email the #taskforce chair" };
+    expect(renderBullet(item)).toBe("- [ ] Email the #taskforce chair #task #DoFirst\n");
+  });
+
+  it("does NOT treat #DoFirstly as the #DoFirst tag (word boundary check)", () => {
+    const item: TaskItem = { bucket: "Do First", text: "Note #DoFirstly draft" };
+    expect(renderBullet(item)).toBe("- [ ] Note #DoFirstly draft #task #DoFirst\n");
   });
 });
 
 describe("insertAtTopOfDate", () => {
-  const bullet = "- [ ] new task #task\n";
+  const bullet = "- [ ] new task #task #DoFirst\n";
 
   it("creates skeleton + today's heading + bullet when file is empty", () => {
     expect(insertAtTopOfDate("", MAY_3, bullet)).toBe(
-      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] new task #task\n"
+      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] new task #task #DoFirst\n"
     );
   });
 
   it("inserts bullet at TOP of today's section when the heading already exists", () => {
     const existing =
-      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] earlier task #task\n";
+      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] earlier task #task #DoSoon\n";
     expect(insertAtTopOfDate(existing, MAY_3, bullet)).toBe(
-      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] new task #task\n- [ ] earlier task #task\n"
+      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] new task #task #DoFirst\n- [ ] earlier task #task #DoSoon\n"
     );
   });
 
   it("creates today's heading at the TOP of body, above older date sections", () => {
     const existing =
-      "---\ntype: tasks-master\n---\n\n## May 2, 2026\n- [ ] yesterday's task #task\n";
+      "---\ntype: tasks-master\n---\n\n## May 2, 2026\n- [ ] yesterday's task #task #Waiting\n";
     expect(insertAtTopOfDate(existing, MAY_3, bullet)).toBe(
-      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] new task #task\n\n## May 2, 2026\n- [ ] yesterday's task #task\n"
+      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] new task #task #DoFirst\n\n## May 2, 2026\n- [ ] yesterday's task #task #Waiting\n"
     );
   });
 
   it("preserves frontmatter type that isn't tasks-master", () => {
-    const existing = "---\ntype: custom\nfoo: bar\n---\n\n## May 2, 2026\n- [ ] x #task\n";
+    const existing = "---\ntype: custom\nfoo: bar\n---\n\n## May 2, 2026\n- [ ] x #task #DoFirst\n";
     const out = insertAtTopOfDate(existing, MAY_3, bullet);
     expect(out.startsWith("---\ntype: custom\nfoo: bar\n---\n")).toBe(true);
-    expect(out).toContain("## May 3, 2026\n- [ ] new task #task\n");
-    expect(out).toContain("## May 2, 2026\n- [ ] x #task\n");
+    expect(out).toContain("## May 3, 2026\n- [ ] new task #task #DoFirst\n");
+    expect(out).toContain("## May 2, 2026\n- [ ] x #task #DoFirst\n");
   });
 
   it("adds frontmatter if the existing file has none", () => {
-    const existing = "## May 2, 2026\n- [ ] yesterday #task\n";
+    const existing = "## May 2, 2026\n- [ ] yesterday #task #DoSoon\n";
     expect(insertAtTopOfDate(existing, MAY_3, bullet)).toBe(
-      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] new task #task\n\n## May 2, 2026\n- [ ] yesterday #task\n"
+      "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] new task #task #DoFirst\n\n## May 2, 2026\n- [ ] yesterday #task #DoSoon\n"
     );
   });
 });
@@ -102,7 +120,9 @@ describe("needsMigration", () => {
 
   it("returns false for date-format files", () => {
     expect(
-      needsMigration("---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] x #task\n")
+      needsMigration(
+        "---\ntype: tasks-master\n---\n\n## May 3, 2026\n- [ ] x #task #DoFirst\n"
+      )
     ).toBe(false);
   });
 
@@ -116,7 +136,7 @@ describe("needsMigration", () => {
 });
 
 describe("migrateBucketsToDate", () => {
-  it("collects bullets from all buckets under one date heading", () => {
+  it("collects bullets under one date heading while PRESERVING existing bucket tags", () => {
     const old =
       "---\ntype: tasks-master\n---\n\n" +
       "## Do First\n- [ ] alpha #task #DoFirst\n\n" +
@@ -126,28 +146,29 @@ describe("migrateBucketsToDate", () => {
       "## On-Hold\n- [ ] epsilon #task #On-Hold\n";
     expect(migrateBucketsToDate(old, MAY_3)).toBe(
       "---\ntype: tasks-master\n---\n\n## May 3, 2026\n" +
-        "- [ ] alpha #task\n" +
-        "- [ ] beta #task\n" +
-        "- [ ] gamma #task\n" +
-        "- [ ] delta #task\n" +
-        "- [ ] epsilon #task\n"
+        "- [ ] alpha #task #DoFirst\n" +
+        "- [ ] beta #task #DoSoon\n" +
+        "- [ ] gamma #task #Delegate\n" +
+        "- [ ] delta #task #Waiting\n" +
+        "- [ ] epsilon #task #On-Hold\n"
     );
   });
 
-  it("strips bucket tag whether it's leading, middle, or trailing on the line", () => {
-    const old =
-      "## Do First\n- [ ] #DoFirst alpha #task\n- [ ] beta #DoFirst middle #task\n";
+  it("backfills missing bucket tag from the section heading the bullet was under", () => {
+    const old = "## Do First\n- [ ] no tag yet\n## Waiting\n- [ ] also no tag #task\n";
     const migrated = migrateBucketsToDate(old, MAY_3);
-    expect(migrated).toContain("- [ ] alpha #task\n");
-    expect(migrated).toContain("- [ ] beta middle #task\n");
+    expect(migrated).toContain("- [ ] no tag yet #task #DoFirst\n");
+    expect(migrated).toContain("- [ ] also no tag #task #Waiting\n");
   });
 
   it("preserves completed (- [x]) bullets", () => {
     const old = "## Do First\n- [x] done thing #task #DoFirst\n";
-    expect(migrateBucketsToDate(old, MAY_3)).toContain("- [x] done thing #task\n");
+    expect(migrateBucketsToDate(old, MAY_3)).toContain(
+      "- [x] done thing #task #DoFirst\n"
+    );
   });
 
-  it("drops non-task content (comments, headings, free text) — task lines only", () => {
+  it("drops non-task content (free text, sub-headings) — task lines only", () => {
     const old =
       "---\ntype: tasks-master\n---\n\n" +
       "Random intro text.\n\n" +
@@ -157,7 +178,7 @@ describe("migrateBucketsToDate", () => {
     const migrated = migrateBucketsToDate(old, MAY_3);
     expect(migrated).not.toContain("Random intro text");
     expect(migrated).not.toContain("Some commentary line");
-    expect(migrated).toContain("- [ ] kept task #task\n");
+    expect(migrated).toContain("- [ ] kept task #task #DoFirst\n");
   });
 
   it("returns just the skeleton when there are no bullets to migrate", () => {
@@ -172,6 +193,13 @@ describe("migrateBucketsToDate", () => {
     const old = "---\ntype: custom\n---\n\n## Do First\n- [ ] x #task #DoFirst\n";
     const migrated = migrateBucketsToDate(old, MAY_3);
     expect(migrated.startsWith("---\ntype: custom\n---\n")).toBe(true);
-    expect(migrated).toContain("## May 3, 2026\n- [ ] x #task\n");
+    expect(migrated).toContain("## May 3, 2026\n- [ ] x #task #DoFirst\n");
+  });
+
+  it("does not mutate bullets under non-bucket sub-headings", () => {
+    const old = "## Some Random\n- [ ] foreign #task\n";
+    const migrated = migrateBucketsToDate(old, MAY_3);
+    expect(migrated).toContain("- [ ] foreign #task\n");
+    expect(migrated).not.toContain("#DoFirst");
   });
 });

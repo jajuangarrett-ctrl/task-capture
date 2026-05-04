@@ -1,11 +1,13 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type TaskCapturePlugin from "../main";
+import type { Bucket } from "./types";
 
 export interface TaskCaptureSettings {
   openaiApiKey: string;
   anthropicApiKey: string;
   tasksFilePath: string;
   showAnotherAfterSave: boolean;
+  lastUsedBucket: Bucket;
   customAcronyms: string;
 }
 
@@ -14,6 +16,7 @@ export const DEFAULT_SETTINGS: TaskCaptureSettings = {
   anthropicApiKey: "",
   tasksFilePath: "08 Tasks/Tasks.md",
   showAnotherAfterSave: true,
+  lastUsedBucket: "Do First",
   customAcronyms: "CalWORKs, VPSS, FJG",
 };
 

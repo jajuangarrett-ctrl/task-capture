@@ -1,4 +1,5 @@
-import type { TaskItem } from "./types";
+import { BUCKETS } from "./types";
+import type { Bucket, TaskItem } from "./types";
 
 const FRONTMATTER = "---\ntype: tasks-master\n---";
 
@@ -17,8 +18,13 @@ const MONTHS = [
   "December",
 ];
 
-const LEGACY_BUCKETS = ["Do First", "Do Soon", "Delegate", "Waiting", "On-Hold"] as const;
-const LEGACY_BUCKET_TAGS = ["#DoFirst", "#DoSoon", "#Delegate", "#Waiting", "#On-Hold"];
+export const BUCKET_TAGS: Record<Bucket, string> = {
+  "Do First": "#DoFirst",
+  "Do Soon": "#DoSoon",
+  Delegate: "#Delegate",
+  Waiting: "#Waiting",
+  "On-Hold": "#On-Hold",
+};
 
 export function formatDateHeading(d: Date): string {
   return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
@@ -29,12 +35,11 @@ export function buildSkeleton(today: Date): string {
 }
 
 export function renderBullet(item: TaskItem): string {
-  const text = item.text.trimEnd();
-  return hasTag(text, "task") ? `- [ ] ${text}\n` : `- [ ] ${text} #task\n`;
+  return `- [ ] ${ensureTags(item.text.trimEnd(), item.bucket)}\n`;
 }
 
 export function needsMigration(content: string): boolean {
-  return LEGACY_BUCKETS.some((b) =>
+  return BUCKETS.some((b) =>
     new RegExp(`^## ${escapeRegex(b)}[ \\t]*$`, "m").test(content)
   );
 }
@@ -44,10 +49,22 @@ export function migrateBucketsToDate(content: string, today: Date): string {
   const fmPart = frontmatter || `${FRONTMATTER}\n`;
   const heading = `## ${formatDateHeading(today)}`;
 
-  const bullets = body
-    .split("\n")
-    .filter((line) => /^[ \t]*- \[[ xX]\]/.test(line))
-    .map(stripLegacyBucketTags);
+  const bullets: string[] = [];
+  let currentBucket: Bucket | null = null;
+
+  for (const line of body.split("\n")) {
+    const headingMatch = line.match(/^##[ \t]+(.+?)[ \t]*$/);
+    if (headingMatch) {
+      const headingName = headingMatch[1];
+      currentBucket = (BUCKETS as readonly string[]).includes(headingName)
+        ? (headingName as Bucket)
+        : null;
+      continue;
+    }
+    if (/^[ \t]*- \[[ xX]\]/.test(line)) {
+      bullets.push(currentBucket ? ensureBulletTags(line, currentBucket) : line);
+    }
+  }
 
   if (bullets.length === 0) {
     return `${fmPart}\n${heading}\n`;
@@ -86,15 +103,22 @@ function splitFrontmatter(content: string): { frontmatter: string; body: string 
   return { frontmatter: match[0], body: content.slice(match[0].length) };
 }
 
-function stripLegacyBucketTags(line: string): string {
-  let result = line;
-  for (const tag of LEGACY_BUCKET_TAGS) {
-    const escaped = escapeRegex(tag);
-    result = result.replace(new RegExp(`[ \\t]+${escaped}(?=[ \\t]|$)`, "g"), "");
-    result = result.replace(new RegExp(`(^|[ \\t])${escaped}[ \\t]+`, "g"), "$1");
-    result = result.replace(new RegExp(`(^|[ \\t])${escaped}$`, ""), "$1");
-  }
-  return result.replace(/[ \t]+$/, "");
+function ensureBulletTags(line: string, bucket: Bucket): string {
+  const checkboxMatch = line.match(/^([ \t]*- \[[ xX]\][ \t]*)(.*)$/);
+  if (!checkboxMatch) return line;
+  const prefix = checkboxMatch[1];
+  const rest = checkboxMatch[2].trimEnd();
+  return `${prefix}${ensureTags(rest, bucket)}`;
+}
+
+function ensureTags(text: string, bucket: Bucket): string {
+  let result = text;
+  const append: string[] = [];
+  if (!hasTag(result, "task")) append.push("#task");
+  const bucketTag = BUCKET_TAGS[bucket];
+  if (!hasTag(result, bucketTag.slice(1))) append.push(bucketTag);
+  if (append.length === 0) return result;
+  return result.length === 0 ? append.join(" ") : `${result} ${append.join(" ")}`;
 }
 
 function hasTag(text: string, tag: string): boolean {
