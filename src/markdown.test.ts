@@ -8,9 +8,9 @@ import {
 import type { TaskItem } from "./types";
 
 describe("buildSkeleton", () => {
-  it("creates a file with frontmatter and all 4 headings in order", () => {
+  it("creates a file with frontmatter and all 5 headings in order", () => {
     expect(buildSkeleton()).toBe(
-      "---\ntype: tasks-master\n---\n\n## Do First\n\n## Do Soon\n\n## Delegate\n\n## Waiting\n"
+      "---\ntype: tasks-master\n---\n\n## Do First\n\n## Do Soon\n\n## Delegate\n\n## Waiting\n\n## On-Hold\n"
     );
   });
 });
@@ -24,19 +24,21 @@ describe("ensureBucketHeadings", () => {
     expect(ensureBucketHeadings("\n   \n\n")).toBe(buildSkeleton());
   });
 
-  it("leaves content untouched when all 4 headings already exist (in order)", () => {
+  it("leaves content untouched when all 5 headings already exist (in order)", () => {
     const existing =
       "---\ntype: tasks-master\n---\n\n" +
       "## Do First\n- [ ] a\n\n" +
       "## Do Soon\n- [ ] b\n\n" +
       "## Delegate\n- [ ] c\n\n" +
-      "## Waiting\n- [ ] d\n";
+      "## Waiting\n- [ ] d\n\n" +
+      "## On-Hold\n- [ ] e\n";
     expect(ensureBucketHeadings(existing)).toBe(existing);
   });
 
-  it("leaves content untouched when all 4 headings exist out of order", () => {
+  it("leaves content untouched when all 5 headings exist out of order", () => {
     const existing =
       "## Waiting\n- [ ] d\n\n" +
+      "## On-Hold\n- [ ] e\n\n" +
       "## Do First\n- [ ] a\n\n" +
       "## Delegate\n- [ ] c\n\n" +
       "## Do Soon\n- [ ] b\n";
@@ -46,7 +48,7 @@ describe("ensureBucketHeadings", () => {
   it("appends only the missing headings when some are present", () => {
     const partial = "## Do First\n- [ ] a\n\n## Waiting\n- [ ] d\n";
     expect(ensureBucketHeadings(partial)).toBe(
-      "## Do First\n- [ ] a\n\n## Waiting\n- [ ] d\n\n## Do Soon\n\n## Delegate\n"
+      "## Do First\n- [ ] a\n\n## Waiting\n- [ ] d\n\n## Do Soon\n\n## Delegate\n\n## On-Hold\n"
     );
   });
 
@@ -59,6 +61,7 @@ describe("ensureBucketHeadings", () => {
     expect(out).toContain("## Do Soon");
     expect(out).toContain("## Delegate");
     expect(out).toContain("## Waiting");
+    expect(out).toContain("## On-Hold");
   });
 });
 
@@ -68,16 +71,16 @@ describe("insertAtTopOfBucket", () => {
   it("creates skeleton and inserts bullet under chosen bucket when file is empty", () => {
     const out = insertAtTopOfBucket("", "Do First", bullet);
     expect(out).toBe(
-      "---\ntype: tasks-master\n---\n\n## Do First\n- [ ] new task\n\n## Do Soon\n\n## Delegate\n\n## Waiting\n"
+      "---\ntype: tasks-master\n---\n\n## Do First\n- [ ] new task\n\n## Do Soon\n\n## Delegate\n\n## Waiting\n\n## On-Hold\n"
     );
   });
 
   it("inserts new bullet at the TOP of an existing bucket (above older bullets)", () => {
     const existing =
-      "---\ntype: tasks-master\n---\n\n## Do First\n- [ ] old task\n\n## Do Soon\n\n## Delegate\n\n## Waiting\n";
+      "---\ntype: tasks-master\n---\n\n## Do First\n- [ ] old task\n\n## Do Soon\n\n## Delegate\n\n## Waiting\n\n## On-Hold\n";
     const out = insertAtTopOfBucket(existing, "Do First", bullet);
     expect(out).toBe(
-      "---\ntype: tasks-master\n---\n\n## Do First\n- [ ] new task\n- [ ] old task\n\n## Do Soon\n\n## Delegate\n\n## Waiting\n"
+      "---\ntype: tasks-master\n---\n\n## Do First\n- [ ] new task\n- [ ] old task\n\n## Do Soon\n\n## Delegate\n\n## Waiting\n\n## On-Hold\n"
     );
   });
 
@@ -85,8 +88,9 @@ describe("insertAtTopOfBucket", () => {
     const existing = buildSkeleton();
     const after1 = insertAtTopOfBucket(existing, "Delegate", "- [ ] task A\n");
     const after2 = insertAtTopOfBucket(after1, "Waiting", "- [ ] task B\n");
-    expect(after2).toBe(
-      "---\ntype: tasks-master\n---\n\n## Do First\n\n## Do Soon\n\n## Delegate\n- [ ] task A\n\n## Waiting\n- [ ] task B\n"
+    const after3 = insertAtTopOfBucket(after2, "On-Hold", "- [ ] task C\n");
+    expect(after3).toBe(
+      "---\ntype: tasks-master\n---\n\n## Do First\n\n## Do Soon\n\n## Delegate\n- [ ] task A\n\n## Waiting\n- [ ] task B\n\n## On-Hold\n- [ ] task C\n"
     );
   });
 
@@ -115,6 +119,12 @@ describe("renderBullet", () => {
     expect(renderBullet({ bucket: "Do Soon", text: "b" })).toBe("- [ ] b #task #DoSoon\n");
     expect(renderBullet({ bucket: "Delegate", text: "c" })).toBe("- [ ] c #task #Delegate\n");
     expect(renderBullet({ bucket: "Waiting", text: "d" })).toBe("- [ ] d #task #Waiting\n");
+    expect(renderBullet({ bucket: "On-Hold", text: "e" })).toBe("- [ ] e #task #On-Hold\n");
+  });
+
+  it("does not duplicate the #On-Hold bucket tag if the user already typed it", () => {
+    const item: TaskItem = { bucket: "On-Hold", text: "Pause vendor renewal #On-Hold" };
+    expect(renderBullet(item)).toBe("- [ ] Pause vendor renewal #On-Hold #task\n");
   });
 
   it("does not duplicate the #task tag if the user already typed it", () => {

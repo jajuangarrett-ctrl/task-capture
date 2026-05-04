@@ -1,7 +1,7 @@
 {
   "id": "task-capture",
   "name": "Task Capture",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "minAppVersion": "1.4.0",
   "description": "Quick voice/text capture of personal tasks into a single bucketed master file in your Obsidian vault.",
   "author": "Franklin Garrett",

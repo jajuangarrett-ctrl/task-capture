@@ -45,6 +45,7 @@ const BUCKET_TAGS: Record<Bucket, string> = {
   "Do Soon": "#DoSoon",
   Delegate: "#Delegate",
   Waiting: "#Waiting",
+  "On-Hold": "#On-Hold",
 };
 
 export function renderBullet(item: TaskItem): string {
