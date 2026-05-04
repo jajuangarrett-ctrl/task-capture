@@ -1,30 +1,49 @@
 import { App, normalizePath, TFile } from "obsidian";
 import {
-  buildSkeleton,
-  ensureBucketHeadings,
-  insertAtTopOfBucket,
+  insertAtTopOfDate,
+  migrateBucketsToDate,
+  needsMigration,
   renderBullet,
 } from "./markdown";
 import type { TaskItem } from "./types";
 
+export interface AppendResult {
+  migrated: boolean;
+  migratedCount: number;
+}
+
 export async function appendTask(
   app: App,
   filePath: string,
-  item: TaskItem
-): Promise<void> {
+  item: TaskItem,
+  capturedAt: Date = new Date()
+): Promise<AppendResult> {
   const path = normalizePath(filePath);
   await ensureParentFolder(app, path);
   const bullet = renderBullet(item);
   const file = app.vault.getAbstractFileByPath(path);
 
   if (file instanceof TFile) {
-    const current = await app.vault.read(file);
-    const next = insertAtTopOfBucket(current, item.bucket, bullet);
+    let current = await app.vault.read(file);
+    let migratedCount = 0;
+    let migrated = false;
+    if (needsMigration(current)) {
+      migratedCount = countTaskLines(current);
+      current = migrateBucketsToDate(current, capturedAt);
+      migrated = true;
+    }
+    const next = insertAtTopOfDate(current, capturedAt, bullet);
     await app.vault.modify(file, next);
-  } else {
-    const seeded = insertAtTopOfBucket(buildSkeleton(), item.bucket, bullet);
-    await app.vault.create(path, seeded);
+    return { migrated, migratedCount };
   }
+
+  const seeded = insertAtTopOfDate("", capturedAt, bullet);
+  await app.vault.create(path, seeded);
+  return { migrated: false, migratedCount: 0 };
+}
+
+function countTaskLines(content: string): number {
+  return content.split("\n").filter((line) => /^[ \t]*- \[[ xX]\]/.test(line)).length;
 }
 
 async function ensureParentFolder(app: App, path: string): Promise<void> {

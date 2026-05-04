@@ -6,13 +6,10 @@ import {
   transcribeWhisper,
   type VoiceRecorder,
 } from "./transcribe";
-import { BUCKETS } from "./types";
-import type { Bucket } from "./types";
 import type TaskCapturePlugin from "../main";
 
 export class CaptureModal extends Modal {
   private plugin: TaskCapturePlugin;
-  private bucket: Bucket = "Do First";
   private text = "";
 
   private textArea: HTMLTextAreaElement | null = null;
@@ -30,17 +27,6 @@ export class CaptureModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.createEl("h2", { text: "Capture task" });
-
-    const last = this.plugin.settings.lastUsedBucket;
-    this.bucket = (BUCKETS as readonly string[]).includes(last) ? last : "Do First";
-
-    new Setting(contentEl).setName("Bucket").addDropdown((d) => {
-      BUCKETS.forEach((b) => d.addOption(b, b));
-      d.setValue(this.bucket);
-      d.onChange((v) => {
-        this.bucket = v as Bucket;
-      });
-    });
 
     new Setting(contentEl)
       .setName("Task")
@@ -144,20 +130,24 @@ export class CaptureModal extends Modal {
       return;
     }
 
+    let result;
     try {
-      await appendTask(this.app, this.plugin.settings.tasksFilePath, {
-        bucket: this.bucket,
-        text,
-      });
+      result = await appendTask(
+        this.app,
+        this.plugin.settings.tasksFilePath,
+        { text }
+      );
     } catch (e) {
       new Notice(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
 
-    this.plugin.settings.lastUsedBucket = this.bucket;
-    await this.plugin.saveSettings();
-
-    new Notice(`Saved to ${this.bucket}`);
+    if (result.migrated) {
+      new Notice(
+        `Migrated ${result.migratedCount} existing task${result.migratedCount === 1 ? "" : "s"} to date format.`
+      );
+    }
+    new Notice("Task saved.");
 
     const reopen = forceAnother || this.plugin.settings.showAnotherAfterSave;
     this.close();

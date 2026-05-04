@@ -1,62 +1,100 @@
-import { BUCKETS } from "./types";
-import type { Bucket, TaskItem } from "./types";
+import type { TaskItem } from "./types";
 
 const FRONTMATTER = "---\ntype: tasks-master\n---";
 
-export function buildSkeleton(): string {
-  const headings = BUCKETS.map((b) => `## ${b}\n`).join("\n");
-  return `${FRONTMATTER}\n\n${headings}`;
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const LEGACY_BUCKETS = ["Do First", "Do Soon", "Delegate", "Waiting", "On-Hold"] as const;
+const LEGACY_BUCKET_TAGS = ["#DoFirst", "#DoSoon", "#Delegate", "#Waiting", "#On-Hold"];
+
+export function formatDateHeading(d: Date): string {
+  return `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
-export function ensureBucketHeadings(content: string): string {
-  if (content.trim().length === 0) {
-    return buildSkeleton();
-  }
-
-  let result = content;
-  for (const bucket of BUCKETS) {
-    const pattern = new RegExp(`^## ${escapeRegex(bucket)}[ \\t]*$`, "m");
-    if (!pattern.test(result)) {
-      const trimmed = result.replace(/\s+$/, "");
-      result = `${trimmed}\n\n## ${bucket}\n`;
-    }
-  }
-  return result;
+export function buildSkeleton(today: Date): string {
+  return `${FRONTMATTER}\n\n## ${formatDateHeading(today)}\n`;
 }
-
-export function insertAtTopOfBucket(
-  content: string,
-  bucket: Bucket,
-  bullet: string
-): string {
-  const ensured = ensureBucketHeadings(content);
-  const pattern = new RegExp(`^## ${escapeRegex(bucket)}[ \\t]*$`, "m");
-  const match = pattern.exec(ensured);
-  if (!match) {
-    throw new Error(`Bucket heading "${bucket}" missing after ensureBucketHeadings`);
-  }
-  const headingEnd = match.index + match[0].length;
-  const insertAt = ensured.charAt(headingEnd) === "\n" ? headingEnd + 1 : headingEnd;
-  return ensured.slice(0, insertAt) + bullet + ensured.slice(insertAt);
-}
-
-const BUCKET_TAGS: Record<Bucket, string> = {
-  "Do First": "#DoFirst",
-  "Do Soon": "#DoSoon",
-  Delegate: "#Delegate",
-  Waiting: "#Waiting",
-  "On-Hold": "#On-Hold",
-};
 
 export function renderBullet(item: TaskItem): string {
   const text = item.text.trimEnd();
-  const tagsToAppend: string[] = [];
-  if (!hasTag(text, "task")) tagsToAppend.push("#task");
-  const bucketTag = BUCKET_TAGS[item.bucket];
-  if (!hasTag(text, bucketTag.slice(1))) tagsToAppend.push(bucketTag);
-  return tagsToAppend.length === 0
-    ? `- [ ] ${text}\n`
-    : `- [ ] ${text} ${tagsToAppend.join(" ")}\n`;
+  return hasTag(text, "task") ? `- [ ] ${text}\n` : `- [ ] ${text} #task\n`;
+}
+
+export function needsMigration(content: string): boolean {
+  return LEGACY_BUCKETS.some((b) =>
+    new RegExp(`^## ${escapeRegex(b)}[ \\t]*$`, "m").test(content)
+  );
+}
+
+export function migrateBucketsToDate(content: string, today: Date): string {
+  const { frontmatter, body } = splitFrontmatter(content);
+  const fmPart = frontmatter || `${FRONTMATTER}\n`;
+  const heading = `## ${formatDateHeading(today)}`;
+
+  const bullets = body
+    .split("\n")
+    .filter((line) => /^[ \t]*- \[[ xX]\]/.test(line))
+    .map(stripLegacyBucketTags);
+
+  if (bullets.length === 0) {
+    return `${fmPart}\n${heading}\n`;
+  }
+  return `${fmPart}\n${heading}\n${bullets.join("\n")}\n`;
+}
+
+export function insertAtTopOfDate(
+  content: string,
+  today: Date,
+  bullet: string
+): string {
+  const { frontmatter, body } = splitFrontmatter(content);
+  const fmPart = frontmatter || `${FRONTMATTER}\n`;
+  const headingText = `## ${formatDateHeading(today)}`;
+  const headingRegex = new RegExp(`^${escapeRegex(headingText)}[ \\t]*$`, "m");
+
+  const match = headingRegex.exec(body);
+  if (match) {
+    const idx = match.index + match[0].length;
+    const insertAt = body.charAt(idx) === "\n" ? idx + 1 : idx;
+    const newBody = body.slice(0, insertAt) + bullet + body.slice(insertAt);
+    return fmPart + newBody;
+  }
+
+  const trimmedBody = body.replace(/^\n+/, "");
+  if (!trimmedBody) {
+    return `${fmPart}\n${headingText}\n${bullet}`;
+  }
+  return `${fmPart}\n${headingText}\n${bullet}\n${trimmedBody}`;
+}
+
+function splitFrontmatter(content: string): { frontmatter: string; body: string } {
+  const match = content.match(/^---\n[\s\S]*?\n---\n?/);
+  if (!match) return { frontmatter: "", body: content };
+  return { frontmatter: match[0], body: content.slice(match[0].length) };
+}
+
+function stripLegacyBucketTags(line: string): string {
+  let result = line;
+  for (const tag of LEGACY_BUCKET_TAGS) {
+    const escaped = escapeRegex(tag);
+    result = result.replace(new RegExp(`[ \\t]+${escaped}(?=[ \\t]|$)`, "g"), "");
+    result = result.replace(new RegExp(`(^|[ \\t])${escaped}[ \\t]+`, "g"), "$1");
+    result = result.replace(new RegExp(`(^|[ \\t])${escaped}$`, ""), "$1");
+  }
+  return result.replace(/[ \t]+$/, "");
 }
 
 function hasTag(text: string, tag: string): boolean {

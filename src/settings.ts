@@ -1,14 +1,11 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import type TaskCapturePlugin from "../main";
-import type { Bucket } from "./types";
-import { BUCKETS } from "./types";
 
 export interface TaskCaptureSettings {
   openaiApiKey: string;
   anthropicApiKey: string;
   tasksFilePath: string;
   showAnotherAfterSave: boolean;
-  lastUsedBucket: Bucket;
   customAcronyms: string;
 }
 
@@ -17,7 +14,6 @@ export const DEFAULT_SETTINGS: TaskCaptureSettings = {
   anthropicApiKey: "",
   tasksFilePath: "08 Tasks/Tasks.md",
   showAnotherAfterSave: true,
-  lastUsedBucket: "Do First",
   customAcronyms: "CalWORKs, VPSS, FJG",
 };
 
@@ -50,7 +46,7 @@ export class TaskCaptureSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Show another after save")
-      .setDesc("After saving a task, immediately reopen the capture modal with the same bucket preselected.")
+      .setDesc("After saving a task, immediately reopen the capture modal.")
       .addToggle((t) =>
         t.setValue(this.plugin.settings.showAnotherAfterSave).onChange(async (v) => {
           this.plugin.settings.showAnotherAfterSave = v;
@@ -100,13 +96,5 @@ export class TaskCaptureSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           })
       );
-
-    containerEl.createEl("h3", { text: "Buckets" });
-    const list = containerEl.createEl("ul");
-    BUCKETS.forEach((b) => list.createEl("li", { text: b }));
-    containerEl.createEl("p", {
-      text: "Bucket order is fixed in v0.1. Edit names manually in the source if needed.",
-      cls: "setting-item-description",
-    });
   }
 }
