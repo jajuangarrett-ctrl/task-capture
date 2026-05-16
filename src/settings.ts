@@ -5,7 +5,8 @@ import type { Bucket } from "./types";
 export interface TaskCaptureSettings {
   openaiApiKey: string;
   anthropicApiKey: string;
-  tasksFilePath: string;
+  taskboardApiUrl: string;
+  dashboardPassword: string;
   showAnotherAfterSave: boolean;
   lastUsedBucket: Bucket;
   customAcronyms: string;
@@ -14,7 +15,8 @@ export interface TaskCaptureSettings {
 export const DEFAULT_SETTINGS: TaskCaptureSettings = {
   openaiApiKey: "",
   anthropicApiKey: "",
-  tasksFilePath: "08 Tasks/Tasks.md",
+  taskboardApiUrl: "https://fjg-taskboard.netlify.app",
+  dashboardPassword: "",
   showAnotherAfterSave: true,
   lastUsedBucket: "Do First",
   customAcronyms: "CalWORKs, VPSS, FJG",
@@ -35,17 +37,31 @@ export class TaskCaptureSettingTab extends PluginSettingTab {
     containerEl.createEl("h2", { text: "Task Capture" });
 
     new Setting(containerEl)
-      .setName("Tasks file path")
-      .setDesc("Single master file for all captured tasks (relative to vault root).")
+      .setName("Taskboard URL")
+      .setDesc("Task captures are sent to this dashboard instead of writing to a vault file.")
       .addText((t) =>
         t
-          .setPlaceholder("08 Tasks/Tasks.md")
-          .setValue(this.plugin.settings.tasksFilePath)
+          .setPlaceholder("https://fjg-taskboard.netlify.app")
+          .setValue(this.plugin.settings.taskboardApiUrl)
           .onChange(async (v) => {
-            this.plugin.settings.tasksFilePath = v.trim() || DEFAULT_SETTINGS.tasksFilePath;
+            this.plugin.settings.taskboardApiUrl = v.trim() || DEFAULT_SETTINGS.taskboardApiUrl;
             await this.plugin.saveSettings();
           })
       );
+
+    new Setting(containerEl)
+      .setName("Dashboard password")
+      .setDesc("Same password used to unlock the taskboard dashboard. Stored locally in plugin data.")
+      .addText((t) => {
+        t.inputEl.type = "password";
+        t
+          .setPlaceholder("dashboard password")
+          .setValue(this.plugin.settings.dashboardPassword)
+          .onChange(async (v) => {
+            this.plugin.settings.dashboardPassword = v;
+            await this.plugin.saveSettings();
+          });
+      });
 
     new Setting(containerEl)
       .setName("Show another after save")

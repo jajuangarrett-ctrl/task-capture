@@ -1,5 +1,5 @@
 import { App, ButtonComponent, Modal, Notice, Setting } from "obsidian";
-import { appendTask } from "./append";
+import { sendTaskToTaskboard } from "./taskboardApi";
 import {
   cleanupTranscript,
   startRecording,
@@ -144,13 +144,8 @@ export class CaptureModal extends Modal {
       return;
     }
 
-    let result;
     try {
-      result = await appendTask(
-        this.app,
-        this.plugin.settings.tasksFilePath,
-        { text, bucket: this.bucket }
-      );
+      await sendTaskToTaskboard(this.plugin.settings, { text, bucket: this.bucket });
     } catch (e) {
       new Notice(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
       return;
@@ -159,11 +154,6 @@ export class CaptureModal extends Modal {
     this.plugin.settings.lastUsedBucket = this.bucket;
     await this.plugin.saveSettings();
 
-    if (result.migrated) {
-      new Notice(
-        `Migrated ${result.migratedCount} existing task${result.migratedCount === 1 ? "" : "s"} to date format.`
-      );
-    }
     new Notice(`Saved as ${this.bucket}.`);
 
     const reopen = forceAnother || this.plugin.settings.showAnotherAfterSave;

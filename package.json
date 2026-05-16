@@ -1,7 +1,7 @@
 {
   "name": "task-capture",
   "version": "0.6.0",
-  "description": "Quick voice/text capture of personal tasks into a single bucketed master file in your Obsidian vault.",
+  "description": "Quick voice/text capture of personal tasks from Obsidian into FJG Taskboard.",
   "main": "main.js",
   "scripts": {
     "dev": "node esbuild.config.mjs",
