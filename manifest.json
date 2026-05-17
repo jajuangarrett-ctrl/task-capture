@@ -1,9 +1,9 @@
 {
   "id": "task-capture",
   "name": "Task Capture",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "minAppVersion": "1.4.0",
-  "description": "Quick voice/text capture of personal tasks into a single bucketed master file in your Obsidian vault.",
+  "description": "Quick voice/text capture of personal tasks from Obsidian into FJG Taskboard.",
   "author": "Franklin Garrett",
   "authorUrl": "",
   "isDesktopOnly": false
